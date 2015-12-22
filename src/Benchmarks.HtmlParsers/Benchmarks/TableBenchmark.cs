@@ -7,6 +7,7 @@ using AngleSharp.Parser.Html;
 using BenchmarkDotNet;
 using BenchmarkDotNet.Tasks;
 using Benchmarks.HtmlParsers.Benchmarks.Base;
+using CsQuery;
 using Fizzler.Systems.HtmlAgilityPack;
 using HtmlAgilityPack;
 
@@ -114,6 +115,51 @@ namespace Benchmarks.HtmlParsers.Benchmarks
         }
 
         /// <summary>
+        /// Extract exchange currency table using CsQuery
+        /// </summary>
+        [Benchmark]
+        public List<BranchBankCurrency> CsQuery()
+        {
+            string currentBankName = null;
+            var currencies = new List<BranchBankCurrency>();
+            var rateFactory = new RateFactory();
+            var descriptionFactory = new BranchBankDescriptionFactory();
+            var currencyFactory = new BranchBankCurrencyFactory();
+
+            CQ doc = CQ.Create(Html);
+            var currencyTable = doc["#curr_table"];
+
+            foreach (var row in currencyTable.Find("tr").Skip(1))
+            {
+                if (!row.Cq().HasClass("tablesorter-childRow"))
+                {
+                    var bankCells = row.Cq().Find("td").ToList();
+                    if (bankCells.Any())
+                    {
+                        var currentBankCell = bankCells.Skip(1).First();
+                        currentBankName = currentBankCell.Cq().Text();
+                        continue;
+                    }
+                }
+
+                var cellsText = row.Cq().Find("td").Select(td => td.Cq().Text()).ToArray();
+
+                if (cellsText.Any())
+                {
+                    var description = descriptionFactory.GetDescription(cellsText.ElementAt(0));
+
+                    var rates = rateFactory.CreateRatesFromRawData(cellsText.Skip(1).ToArray());
+
+                    var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
+
+                    currencies.Add(currency);
+                }
+            }
+
+            return currencies;
+        }
+
+        /// <summary>
         /// Extract exchange currency table using AngleSharp
         /// </summary>
         [Benchmark]
@@ -198,7 +244,7 @@ namespace Benchmarks.HtmlParsers.Benchmarks
                 return CreateRate(rate, "RUB", ExchangeDirection.Sell);
             }
 
-            public IReadOnlyList<Rate> CreateRatesFromRawData(string[] rawRates)
+            public IEnumerable<Rate> CreateRatesFromRawData(string[] rawRates)
             {
                 var rates = new List<Rate>
                 {
@@ -230,8 +276,7 @@ namespace Benchmarks.HtmlParsers.Benchmarks
 
         public class BranchBankCurrencyFactory
         {
-            public BranchBankCurrency GetBranchBankCurrency(string bankName, BranchBankDescription description,
-                IReadOnlyList<Rate> rates)
+            public BranchBankCurrency GetBranchBankCurrency(string bankName, BranchBankDescription description, IEnumerable<Rate> rates)
             {
                 return new BranchBankCurrency
                 {
