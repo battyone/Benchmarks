@@ -10,6 +10,8 @@ Short results from benchmarks
 
 The benchmark is about one of the most popular topic - extract all anchor tags from html page
 
+[Read the benchmark's code](src/Benchmarks.HtmlParsers/Benchmarks/AHrefBenchmark.cs)
+
 > **BenchmarkDotNet**=v0.8.0.0
 
 > **OS**=Microsoft Windows NT 6.1.7601 Service Pack 1
