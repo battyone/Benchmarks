@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
 using AngleSharp.Dom.Html;
 using AngleSharp.Extensions;
 using AngleSharp.Parser.Html;
@@ -193,6 +195,66 @@ namespace Benchmarks.HtmlParsers.Benchmarks
                 var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
 
                 currencies.Add(currency);
+            }
+
+            return currencies;
+        }
+
+        /// <summary>
+        /// Extract exchange currency table using AngleSharp
+        /// </summary>
+        [Benchmark]
+        public List<BranchBankCurrency> Regex()
+        {
+            string currentBankName = null;
+            var currencies = new List<BranchBankCurrency>();
+            var rateFactory = new RateFactory();
+            var descriptionFactory = new BranchBankDescriptionFactory();
+            var currencyFactory = new BranchBankCurrencyFactory();
+
+
+            Regex rowRegex = new Regex("<tr[^>]*?>(?<rowContent>((?!</tr>).)*)</tr>",
+                RegexOptions.Compiled | RegexOptions.Singleline);
+            Regex cellRegex = new Regex("<td[^>]*?>(?<cell>((?!</td>).)*)</td>",
+                RegexOptions.Compiled | RegexOptions.Singleline);
+            Regex attributeRegex = new Regex("(\\S+)=[\"']?((?:.(?![\"']?\\s+(?:\\S+)=|[>\"']))+.)[\"']?",
+                RegexOptions.Compiled | RegexOptions.Singleline);
+            Regex cleanTagRegex = new Regex("\\<[^\\>]*\\>", 
+                RegexOptions.Compiled | RegexOptions.Singleline);
+
+            foreach (var row in rowRegex.Matches(Html).Cast<Match>().Select(match => new
+            {
+                InnerHtml = WebUtility.HtmlDecode(match.Groups["rowContent"].ToString()),
+                Content = WebUtility.HtmlDecode(match.ToString())
+            }).Skip(1))
+            {
+                var cells = cellRegex.Matches(row.InnerHtml)
+                    .Cast<Match>()
+                    .Select(match => WebUtility.HtmlDecode(match.Groups["cell"].ToString()))
+                    .ToList();
+
+                var attributes = attributeRegex.Matches(row.Content)
+                    .Cast<Match>()
+                    .FirstOrDefault(m => m.ToString().Contains("tablesorter-childRow"));
+
+                if (cells.Any(cell => !string.IsNullOrWhiteSpace(cell)) && cells.Count > 2)
+                {
+                    if (attributes == null)
+                    {
+                        currentBankName = cleanTagRegex.Replace(cells[1], string.Empty);
+                        continue;
+                    }
+
+                    var rawDescription = cleanTagRegex.Replace(cells.ElementAt(0), string.Empty);
+
+                    var description = descriptionFactory.GetDescription(rawDescription);
+
+                    var rates = rateFactory.CreateRatesFromRawData(cells.Skip(1).ToArray());
+
+                    var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
+
+                    currencies.Add(currency);
+                }
             }
 
             return currencies;
