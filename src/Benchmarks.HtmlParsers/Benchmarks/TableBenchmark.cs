@@ -69,6 +69,51 @@ namespace Benchmarks.HtmlParsers.Benchmarks
         }
 
         /// <summary>
+        /// Extract exchange currency table using Fizzler
+        /// </summary>
+        [Benchmark]
+        public List<BranchBankCurrency> Fizzler()
+        {
+            string currentBankName = null;
+            var currencies = new List<BranchBankCurrency>();
+            var rateFactory = new RateFactory();
+            var descriptionFactory = new BranchBankDescriptionFactory();
+            var currencyFactory = new BranchBankCurrencyFactory();
+
+            HtmlDocument htmlSnippet = new HtmlDocument();
+            htmlSnippet.LoadHtml(Html);
+
+            foreach (HtmlNode row in htmlSnippet.DocumentNode.QuerySelector("table").QuerySelectorAll("tr").Skip(1))
+            {
+                if (!row.GetAttributeValue("class", string.Empty).Contains("tablesorter-childRow"))
+                {
+                    var cellNodes = row.SelectNodes("td");
+                    if (cellNodes != null)
+                    {
+                        var currentBankCell = row.SelectNodes("td").Skip(1).First();
+                        currentBankName = currentBankCell.InnerText;
+                    }
+                    
+                    continue;
+                }
+
+                HtmlNodeCollection cells = row.SelectNodes("td");
+
+                var cellsText = cells.Select(x => x.InnerText).ToArray();
+
+                var description = descriptionFactory.GetDescription(cellsText.ElementAt(0));
+
+                var rates = rateFactory.CreateRatesFromRawData(cellsText.Skip(1).ToArray());
+
+                var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
+
+                currencies.Add(currency);
+            }
+
+            return currencies;
+        }
+
+        /// <summary>
         /// Extract exchange currency table using AngleSharp
         /// </summary>
         [Benchmark]
