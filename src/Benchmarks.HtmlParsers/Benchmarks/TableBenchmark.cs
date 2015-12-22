@@ -7,6 +7,7 @@ using AngleSharp.Parser.Html;
 using BenchmarkDotNet;
 using BenchmarkDotNet.Tasks;
 using Benchmarks.HtmlParsers.Benchmarks.Base;
+using Fizzler.Systems.HtmlAgilityPack;
 using HtmlAgilityPack;
 
 namespace Benchmarks.HtmlParsers.Benchmarks
@@ -40,10 +41,16 @@ namespace Benchmarks.HtmlParsers.Benchmarks
             {
                 if (!row.GetAttributeValue("class", string.Empty).Contains("tablesorter-childRow"))
                 {
-                    var currentBankCell = row.SelectNodes("td").Skip(1).First();
-                    currentBankName = currentBankCell.InnerText;
+                    var cellNodes = row.SelectNodes("td");
+                    if (cellNodes != null)
+                    {
+                        var currentBankCell = row.SelectNodes("td").Skip(1).First();
+                        currentBankName = currentBankCell.InnerText;
+                    }
+
                     continue;
                 }
+
 
                 HtmlNodeCollection cells = row.SelectNodes("td");
 
