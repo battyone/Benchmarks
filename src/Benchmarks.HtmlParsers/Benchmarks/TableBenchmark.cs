@@ -13,7 +13,10 @@ namespace Benchmarks.HtmlParsers.Benchmarks
     [BenchmarkTask]
     public class TableBenchmark : HtmlBenchmarkBase
     {
-        protected override string ResourcePath => "Benchmarks.HtmlParsers.Examples.02.Table.html";
+        protected override string ResourcePath
+        {
+            get { return "Benchmarks.HtmlParsers.Examples.02.Table.html"; }
+        }
 
         /// <summary>
         /// Extract exchange currency table using AngleSharp

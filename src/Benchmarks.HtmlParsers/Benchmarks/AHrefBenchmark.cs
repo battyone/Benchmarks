@@ -14,7 +14,10 @@ namespace Benchmarks.HtmlParsers.Benchmarks
     [BenchmarkTask]
     public class AHrefBenchmark : HtmlBenchmarkBase
     {
-        protected override string ResourcePath => "Benchmarks.HtmlParsers.Examples.01.Hrefs.html";
+        protected override string ResourcePath
+        {
+            get { return "Benchmarks.HtmlParsers.Examples.01.Hrefs.html"; }
+        }
 
         /// <summary>
         /// Extract all anchor tags using HtmlAgilityPack
