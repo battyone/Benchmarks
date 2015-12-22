@@ -8,11 +8,17 @@ Short results from benchmarks
 
 ### AHrefBenchmark
 
-> * **BenchmarkDotNet**=v0.8.0.0
-> * **OS**=Microsoft Windows NT 6.1.7601 Service Pack 1
-> * **Processor**=Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz, ProcessorCount=8
-> * **HostCLR**=MS.NET 4.0.30319.34209, Arch=32-bit 
-> * **Type**=AHrefBenchmark  Mode=Throughput  Platform=HostPlatform  Jit=HostJit  .NET=HostFramework  toolchain=Classic  Runtime=Clr  Warmup=5  Target=10
+The benchmark is about one of the most popular topic - extract all anchor tags from html page
+
+> **BenchmarkDotNet**=v0.8.0.0
+
+> **OS**=Microsoft Windows NT 6.1.7601 Service Pack 1
+
+> **Processor**=Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz, ProcessorCount=8
+
+> **HostCLR**=MS.NET 4.0.30319.34209, Arch=32-bit 
+
+> **Type**=AHrefBenchmark  Mode=Throughput  Platform=HostPlatform  Jit=HostJit  .NET=HostFramework  toolchain=Classic  Runtime=Clr  Warmup=5  Target=10
 
           Method |    AvrTime |    StdDev |   op/s |
 ---------------- |----------- |---------- |------- |
