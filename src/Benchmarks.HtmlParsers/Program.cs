@@ -7,7 +7,7 @@ namespace Benchmarks.HtmlParsers
     {
         static void Main(string[] args)
         {
-            new BenchmarkRunner().Run<TableBenchmark>();
+            new BenchmarkRunner().Run<AHrefBenchmark>();
         }
     }
 }

@@ -7,6 +7,7 @@ using AngleSharp.Parser.Html;
 using BenchmarkDotNet;
 using BenchmarkDotNet.Tasks;
 using Benchmarks.HtmlParsers.Benchmarks.Base;
+using HtmlAgilityPack;
 
 namespace Benchmarks.HtmlParsers.Benchmarks
 {
@@ -16,6 +17,66 @@ namespace Benchmarks.HtmlParsers.Benchmarks
         protected override string ResourcePath
         {
             get { return "Benchmarks.HtmlParsers.Examples.02.Table.html"; }
+        }
+
+        #region Benchmarks
+
+        /// <summary>
+        /// Extract exchange currency table using HtmlAgilityPack
+        /// </summary>
+        [Benchmark]
+        public List<BranchBankCurrency> HtmlAgilityPack()
+        {
+            HtmlDocument htmlSnippet = new HtmlDocument();
+            htmlSnippet.LoadHtml(Html);
+
+            var currencies = new List<BranchBankCurrency>();
+            var factory = new RateFactory();
+            string currentBankName = null;
+
+            foreach (HtmlNode row in htmlSnippet.DocumentNode.SelectNodes("//table[@id='curr_table']/tbody/tr"))
+            {
+                if (!row.GetAttributeValue("class", string.Empty).Contains("tablesorter-childRow"))
+                {
+                    var currentBankCell =  row.SelectNodes("td").Skip(1).First();
+                    currentBankName = currentBankCell.InnerText;
+                    continue;
+                }
+
+                HtmlNodeCollection cells = row.SelectNodes("td");
+                var branchBankAddressParts = cells.ElementAtOrDefault(0);
+
+                string[] addressParts = {};
+                if (branchBankAddressParts != null)
+                {
+                    addressParts = branchBankAddressParts
+                        .InnerText
+                        .Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                }
+
+                var rates = new List<Rate>
+                {
+                    factory.CreateUsdBuyRate(cells.ElementAtOrDefault(1).InnerText),
+                    factory.CreateUsdSellRate(cells.ElementAtOrDefault(2).InnerText),
+                    factory.CreateEurBuyRate(cells.ElementAtOrDefault(3).InnerText),
+                    factory.CreateEurSellRate(cells.ElementAtOrDefault(4).InnerText),
+                    factory.CreateRubBuyRate(cells.ElementAtOrDefault(5).InnerText),
+                    factory.CreateRubSellRate(cells.ElementAtOrDefault(6).InnerText)
+                };
+
+                var currency = new BranchBankCurrency
+                {
+                    Bank = currentBankName,
+                    Name = addressParts[0].Trim(' ', '-'),
+                    FullAddress = string.Join(string.Empty, addressParts.Skip(1)).Trim(),
+                    Rates = rates
+
+                };
+
+                currencies.Add(currency);
+            }
+
+            return currencies;
         }
 
         /// <summary>
@@ -70,6 +131,8 @@ namespace Benchmarks.HtmlParsers.Benchmarks
 
             return currencies;
         }
+
+        #endregion
 
         #region Models
 
