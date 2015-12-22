@@ -27,51 +27,33 @@ namespace Benchmarks.HtmlParsers.Benchmarks
         [Benchmark]
         public List<BranchBankCurrency> HtmlAgilityPack()
         {
+            string currentBankName = null;
+            var currencies = new List<BranchBankCurrency>();
+            var rateFactory = new RateFactory();
+            var descriptionFactory = new BranchBankDescriptionFactory();
+            var currencyFactory = new BranchBankCurrencyFactory();
+
             HtmlDocument htmlSnippet = new HtmlDocument();
             htmlSnippet.LoadHtml(Html);
-
-            var currencies = new List<BranchBankCurrency>();
-            var factory = new RateFactory();
-            string currentBankName = null;
 
             foreach (HtmlNode row in htmlSnippet.DocumentNode.SelectNodes("//table[@id='curr_table']/tbody/tr"))
             {
                 if (!row.GetAttributeValue("class", string.Empty).Contains("tablesorter-childRow"))
                 {
-                    var currentBankCell =  row.SelectNodes("td").Skip(1).First();
+                    var currentBankCell = row.SelectNodes("td").Skip(1).First();
                     currentBankName = currentBankCell.InnerText;
                     continue;
                 }
 
                 HtmlNodeCollection cells = row.SelectNodes("td");
-                var branchBankAddressParts = cells.ElementAtOrDefault(0);
 
-                string[] addressParts = {};
-                if (branchBankAddressParts != null)
-                {
-                    addressParts = branchBankAddressParts
-                        .InnerText
-                        .Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
-                }
+                var cellsText = cells.Select(x => x.InnerText).ToArray();
 
-                var rates = new List<Rate>
-                {
-                    factory.CreateUsdBuyRate(cells.ElementAtOrDefault(1).InnerText),
-                    factory.CreateUsdSellRate(cells.ElementAtOrDefault(2).InnerText),
-                    factory.CreateEurBuyRate(cells.ElementAtOrDefault(3).InnerText),
-                    factory.CreateEurSellRate(cells.ElementAtOrDefault(4).InnerText),
-                    factory.CreateRubBuyRate(cells.ElementAtOrDefault(5).InnerText),
-                    factory.CreateRubSellRate(cells.ElementAtOrDefault(6).InnerText)
-                };
+                var description = descriptionFactory.GetDescription(cellsText.ElementAt(0));
 
-                var currency = new BranchBankCurrency
-                {
-                    Bank = currentBankName,
-                    Name = addressParts[0].Trim(' ', '-'),
-                    FullAddress = string.Join(string.Empty, addressParts.Skip(1)).Trim(),
-                    Rates = rates
+                var rates = rateFactory.CreateRatesFromRawData(cellsText.Skip(1).ToArray());
 
-                };
+                var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
 
                 currencies.Add(currency);
             }
@@ -85,14 +67,16 @@ namespace Benchmarks.HtmlParsers.Benchmarks
         [Benchmark]
         public List<BranchBankCurrency> AngleSharp()
         {
-            var parser = new HtmlParser();
-            var document = parser.Parse(Html);
-
-            var currencyTable = document.QuerySelector<IHtmlTableElement>("table");
-
             string currentBankName = null;
             var currencies = new List<BranchBankCurrency>();
-            var factory = new RateFactory();
+            var rateFactory = new RateFactory();
+            var descriptionFactory = new BranchBankDescriptionFactory();
+            var currencyFactory = new BranchBankCurrencyFactory();
+
+            var parser = new HtmlParser();
+            var document = parser.Parse(Html);
+            var currencyTable = document.QuerySelector<IHtmlTableElement>("table");
+
             foreach (var row in currencyTable.Rows.Skip(1))
             {
                 if (!row.ClassList.Contains("tablesorter-childRow"))
@@ -102,29 +86,13 @@ namespace Benchmarks.HtmlParsers.Benchmarks
                     continue;
                 }
 
-                var cells = row.Cells;
-                var branchBankAddressParts = cells.ElementAtOrDefault(0)
-                    .Text()
-                    .Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+                var cellsText = row.Cells.Select(x => x.Text()).ToArray();
 
-                var rates = new List<Rate>
-                {
-                    factory.CreateUsdBuyRate(cells.ElementAtOrDefault(1).Text()),
-                    factory.CreateUsdSellRate(cells.ElementAtOrDefault(2).Text()),
-                    factory.CreateEurBuyRate(cells.ElementAtOrDefault(3).Text()),
-                    factory.CreateEurSellRate(cells.ElementAtOrDefault(4).Text()),
-                    factory.CreateRubBuyRate(cells.ElementAtOrDefault(5).Text()),
-                    factory.CreateRubSellRate(cells.ElementAtOrDefault(6).Text())
-                };
+                var description = descriptionFactory.GetDescription(cellsText.ElementAt(0));
 
-                var currency = new BranchBankCurrency
-                {
-                    Bank = currentBankName,
-                    Name = branchBankAddressParts[0].Trim(' ', '-'),
-                    FullAddress = string.Join(string.Empty, branchBankAddressParts.Skip(1)).Trim(),
-                    Rates = rates
+                var rates = rateFactory.CreateRatesFromRawData(cellsText.Skip(1).ToArray());
 
-                };
+                var currency = currencyFactory.GetBranchBankCurrency(currentBankName, description, rates);
 
                 currencies.Add(currency);
             }
@@ -134,7 +102,7 @@ namespace Benchmarks.HtmlParsers.Benchmarks
 
         #endregion
 
-        #region Models
+        #region Infrastructure
 
         public class RateFactory
         {
@@ -177,6 +145,60 @@ namespace Benchmarks.HtmlParsers.Benchmarks
             {
                 return CreateRate(rate, "RUB", ExchangeDirection.Sell);
             }
+
+            public IReadOnlyList<Rate> CreateRatesFromRawData(string[] rawRates)
+            {
+                var rates = new List<Rate>
+                {
+                    CreateUsdBuyRate(rawRates[0]),
+                    CreateUsdSellRate(rawRates[1]),
+                    CreateEurBuyRate(rawRates[2]),
+                    CreateEurSellRate(rawRates[3]),
+                    CreateRubBuyRate(rawRates[4]),
+                    CreateRubSellRate(rawRates[5])
+                };
+
+                return rates;
+            }
+        }
+
+        public class BranchBankDescriptionFactory
+        {
+            public BranchBankDescription GetDescription(string address)
+            {
+                var addressParts = address.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+
+                return new BranchBankDescription
+                {
+                    Name = addressParts[0].Trim(' ', '-'),
+                    FullAddress = string.Join(string.Empty, addressParts.Skip(1)).Trim(),
+                };
+            }
+        }
+
+        public class BranchBankCurrencyFactory
+        {
+            public BranchBankCurrency GetBranchBankCurrency(string bankName, BranchBankDescription description,
+                IReadOnlyList<Rate> rates)
+            {
+                return new BranchBankCurrency
+                {
+                    Bank = bankName,
+                    Name = description.Name,
+                    FullAddress = description.FullAddress,
+                    Rates = rates
+                };
+            }
+        }
+
+        #endregion
+
+        #region Models
+
+        public class BranchBankDescription
+        {
+            public string Name { get; set; }
+            public string FullAddress { get; set; }
         }
 
         public class Rate
